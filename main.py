@@ -1,9 +1,74 @@
 import os
 from dotenv import load_dotenv, dotenv_values 
 from openai import OpenAI, AsyncOpenAI, OpenAIError
+import asyncio
+from openai_api import initialize_openAI
+from playwright_api import get_page_data_playwright, get_all_pages_playwright
+from playwright.async_api import async_playwright, Page, BrowserContext, ElementHandle, Browser
 
-load_dotenv()
+# *Main Flow*
+# 1. Load environment variables (done)
+# 2. Add client input functuionality (done)
+# 3. Initialize openai client (Done)
+# 4. retrieve json data from tldraw using playwright
+# 5. Get relevent data from json 
+# 5. Send data to openai (URL or Base64) (Resize them before sending)
+# 6. Get response from openai
+# 7. Process response (figure out how to store the desc and keywords for each of the img)
 
-client = OpenAI(
-    api_key = os.getenv('OPENAI_API_KEY')
-    )
+# Use async programming
+
+
+# Example: https://www.tldraw.com/r/fOZmgi9MQzQc-rrXnpAz6?v=-167,-196,5343,2630&p=HGtpLC0ipiTvgK6awql7m
+
+
+async def main():
+    client = await initialize_openAI()
+    # await get_page_data_playwright()
+    targets, url = await cmd_user_input()
+
+    for target in targets:
+        await get_page_data_playwright(url, target)
+    
+    print(targets)
+
+
+async def get_specific_data():
+    pass
+
+
+async def cmd_user_input():
+    url = ""
+    targets = []
+
+    while url == "":
+        url = input("Tldraw project url: ").strip()
+    
+    print("\nType 'ALL' to extract all pages. Otherwise, type the page name(s) u wish to extract.\nWhen finished type 'DONE'.\n")
+    while True:
+        val = input("::").lower().strip()
+
+        if len(targets) == 0 and val == "all":
+            # Extract all pages
+            try:
+                targets = await get_all_pages_playwright(url)
+            except Exception as e:
+                print(e)
+                exit()
+            break
+
+        # Done adding pages
+        if val == "done": break
+
+        if val != "": targets.append(val)
+
+    return targets, url
+
+
+if __name__ == "__main__":
+    # Load the environment variables from .env file
+    load_dotenv()
+   
+    asyncio.run(main())
+
+
