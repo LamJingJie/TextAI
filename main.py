@@ -41,8 +41,27 @@ async def main(processors: ProcessPoolExecutor):
         pages_json_content.append(get_page_data_playwright(url, target, processors))
     
     # None value = error occured and should be ignored
+
+    # Wait for all pages to be processed and returns back an array
     pages_json_content = await asyncio.gather(*pages_json_content)
-    # print(pages_json_content) # Should show frameid for each page
+
+    
+    for page in pages_json_content:
+        for img in page['all_student_imgs']:
+            #Find img in assets
+            processors.submit(process_img_openai, img[0], page['assets'], img[1])
+
+
+# abit CPU-intensive :>
+# Tasks:
+# a) Resize img to fit openAI vision model specs
+# b) Send img to openAI
+# c) Get response (desc n keywords)
+# d) Store response and that img name, along with student name. Store as JSON file
+def process_img_openai(student_img_id, assets, student_name):
+    for asset in assets:
+        if student_img_id == asset['id']:
+            print('Found img for', student_name)
 
 
 

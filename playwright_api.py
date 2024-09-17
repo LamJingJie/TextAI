@@ -7,8 +7,8 @@ import asyncio
 # Get relevent data from tldraw
 async def get_page_data_playwright(url: str, target: str, processors: ProcessPoolExecutor):
     prj_title = ''
-    desc = ''
-    date = ''
+    desc: str = ''
+    date: str = ''
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
@@ -64,18 +64,28 @@ async def get_page_data_playwright(url: str, target: str, processors: ProcessPoo
                 print(f"Description and date not found for {target}. Set to default value. Ensure that its in the format '<desc>::<date>'.")
 
             # Get image tasks to be done in parallel
+            # Tasks here
             if not isCustomTemplatePresent:
                 future_obj_task = processors.submit(get_tasks_method1, filtered_shapes_data, frame_id)
             else:
                 # Custom template
                 future_obj_task = processors.submit(get_tasks_method1, filtered_shapes_data, frame_id)
 
-            tasks = await asyncio.wrap_future(future_obj_task)
+            # 0: assetid
+            # 1: student name
+            # all student images inside a page
+            all_student_imgs = await asyncio.wrap_future(future_obj_task)
 
-            
+            relavent_data = {
+                'desc': desc,
+                'date': date,
+                'all_student_imgs': all_student_imgs,
+                'prj_title': prj_title,
+                'target': target,
+                'assets': json_content['assets']
+            }
 
-            # json_content['assets']
-            return desc, date, tasks, prj_title, target, tasks
+            return relavent_data
         
     except Exception as e:
         print(e)
@@ -84,32 +94,32 @@ async def get_page_data_playwright(url: str, target: str, processors: ProcessPoo
 
 # DFS algorithm
 # No custom template
-def get_tasks_method1(shapes: list, frame_id: str, name = None, tasks = None):
-    if tasks is None:
-        tasks = set()
+def get_tasks_method1(shapes: list, frame_id: str, name = None, all_student_imgs = None):
+    if all_student_imgs is None:
+        all_student_imgs = set()
 
     for shape in shapes:
 
-        # Stops here when an img is found and adds it to the tasks together with the student name
+        # Stops here when an img is found and adds it to the tasks together with the student name to be transformed ltr
         if shape['parentId'] == frame_id and shape['type'] == 'image' and name is not None:
-            tasks_data = {
-                "assetId": shape['props']['assetId'],
-                "name": name,
-            }
-            tasks.add(tasks_data)
+            student_img_data = (
+                shape['props']['assetId'],
+                name,
+            )
+            all_student_imgs.add(student_img_data)
 
         if shape['parentId'] == frame_id and shape['type'] == 'frame':
             name = shape['props']['name'].strip().replace('<', '').replace('>', '')
-            sub_tasks = get_tasks_method1(shapes, shape['id'], name, tasks)
-            tasks.update(sub_tasks)
+            new_students_imgs = get_tasks_method1(shapes, shape['id'], name, all_student_imgs)
+            all_student_imgs.update(new_students_imgs) # Add only new imgs into the current imgs set
 
             name = None # Reset the name to None after the recursive call
 
         if shape['parentId'] == frame_id and shape['type'] == 'group':
-            sub_tasks = get_tasks_method1(shapes, shape['id'], name, tasks)
-            tasks.update(sub_tasks)
+            new_students_imgs = get_tasks_method1(shapes, shape['id'], name, all_student_imgs)
+            all_student_imgs.update(new_students_imgs)
 
-    return tasks
+    return all_student_imgs
 
 
 def clean_data(target: str, shapes: list):
