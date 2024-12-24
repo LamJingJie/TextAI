@@ -7,6 +7,9 @@ name = "pypi"
 openai = "*"
 python-dotenv = "*"
 playwright = "*"
+requests = "*"
+pillow = "*"
+aiohttp = "*"
 
 [dev-packages]
 

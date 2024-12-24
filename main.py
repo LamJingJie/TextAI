@@ -1,12 +1,15 @@
 import os
 from dotenv import load_dotenv, dotenv_values 
-from openai import OpenAI, AsyncOpenAI, OpenAIError
 import asyncio
-from openai_api import initialize_openAI
-from playwright_api import get_page_data_playwright, get_all_pages_playwright
-from playwright.async_api import async_playwright, Page, BrowserContext, ElementHandle, Browser
+from app.openai.main import initialize_openAI
+from app.playwright.main import get_page_data_playwright, get_all_pages_playwright
 from multiprocessing import Lock, Pool, Manager, cpu_count, Queue
 from concurrent.futures import ProcessPoolExecutor
+import base64
+from requests import Response
+import requests
+from yarl import URL
+from PIL import Image
 
 # *Main Flow*
 # 1. Load environment variables (done)
@@ -21,17 +24,11 @@ from concurrent.futures import ProcessPoolExecutor
 # Use async programming and multi-processing
 
 
-# TASKS:
-            # Get img using the assetId
-            # Resize the img to fit openAI vision model - high quality
-            # Send the img to openAI
-
-
 # Example: https://www.tldraw.com/r/fOZmgi9MQzQc-rrXnpAz6?v=-167,-196,5343,2630&p=HGtpLC0ipiTvgK6awql7m
 
 
 async def main(processors: ProcessPoolExecutor):
-    pages_json_content = []
+    pages_json_content: list = []
     client = await initialize_openAI()
     # await get_page_data_playwright()
     targets, url = await cmd_user_input()
@@ -52,7 +49,7 @@ async def main(processors: ProcessPoolExecutor):
             processors.submit(process_img_openai, img[0], page['assets'], img[1])
 
 
-# abit CPU-intensive :>
+# abit CPU-intensive :> (TMR TASKS)------
 # Tasks:
 # a) Resize img to fit openAI vision model specs
 # b) Send img to openAI
@@ -61,10 +58,33 @@ async def main(processors: ProcessPoolExecutor):
 def process_img_openai(student_img_id, assets, student_name):
     for asset in assets:
         if student_img_id == asset['id']:
+            resize_img(asset['props']['src'])
             print('Found img for', student_name)
 
 
+def resize_img(img_data: str | URL):
+    # get raw img data (bytes)
+    if img_data.startswith('data:image') and img_data.find('base64,') != -1:
+        # Is base64 data
+        base64_index = img_data.find('base64,') + len('base64,')
+        img_data = base64.b64decode(img_data[base64_index:])
+    else:
+        # is URL
+        response: Response = requests.get(img_data)
+        if response.status_code == 200:
+            img_data = response.content
+        else:
+            # Unable to retrieve img data (bytes) from url
+            print("Fail")
+            return
+    print("Success")
+    image = Image.open(img_data)
 
+    # Resize img for 'high res' mode. Short side <= 768px and Long side <= 2000px
+
+    
+
+# What the user will see
 async def cmd_user_input():
     url = ""
     targets = []

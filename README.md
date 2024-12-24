@@ -1,2 +1,36 @@
 # TextAI
-End Goal: &lt;related texts> and &lt;summary/description> to be return -> Throw in img and context to generate related texts and summary/description. -> If it detects an image thats just filled with texts, it will just return the text itself as a description and related texts on what its about.
+## End Goal
+- Generate related texts and summaries/descriptions from images and context.
+- If an image contains only text, return the text itself as a description and related texts about it.
+
+## Introduction
+- This tool is used to process images and generate related texts and summaries.
+
+## Initialization
+Navigate to the parent folder and run the following commands:
+
+
+1. Install Virtual Env
+```sh
+python install pipenv
+```
+
+2. Activate Virtual Env
+```sh
+pipenv shell
+```
+
+3. Install relevant dependicies
+```sh
+pipenv install
+```
+
+4. Install playwright files
+```sh
+playwright install
+```
+
+5. Run program
+```sh
+python main.py
+```
