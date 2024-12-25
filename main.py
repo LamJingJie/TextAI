@@ -1,4 +1,3 @@
-import os
 from dotenv import load_dotenv, dotenv_values 
 import asyncio
 from app.openai.main import initialize_openAI
@@ -9,7 +8,8 @@ import base64
 from requests import Response
 import requests
 from yarl import URL
-from PIL import Image
+from PIL import Image, ImageFile
+from io import BytesIO
 
 # *Main Flow*
 # 1. Load environment variables (done)
@@ -30,7 +30,6 @@ from PIL import Image
 async def main(processors: ProcessPoolExecutor):
     pages_json_content: list = []
     client = await initialize_openAI()
-    # await get_page_data_playwright()
     targets, url = await cmd_user_input()
 
     # Get relevent JSON data from tldraw
@@ -59,29 +58,37 @@ def process_img_openai(student_img_id, assets, student_name):
     for asset in assets:
         if student_img_id == asset['id']:
             resize_img(asset['props']['src'])
-            print('Found img for', student_name)
 
 
-def resize_img(img_data: str | URL):
+# BUG HERE
+def resize_img(img_data: str | URL | bytes):
     # get raw img data (bytes)
+
     if img_data.startswith('data:image') and img_data.find('base64,') != -1:
         # Is base64 data
         base64_index = img_data.find('base64,') + len('base64,')
-        img_data = base64.b64decode(img_data[base64_index:])
+        img_data = base64.b64decode(img_data[base64_index:]) # Returns raw byte data
     else:
         # is URL
         response: Response = requests.get(img_data)
         if response.status_code == 200:
-            img_data = response.content
+            img_data = response.content # Returns raw byte data
         else:
             # Unable to retrieve img data (bytes) from url
             print("Fail")
+
+            # <Error handling here>
             return
-    print("Success")
-    image = Image.open(img_data)
+    
+    # Convert raw byte into file-like object to be opened by PIL as an  image
+    image: ImageFile = Image.open(BytesIO(img_data))
 
     # Resize img for 'high res' mode. Short side <= 768px and Long side <= 2000px
-
+    try:
+        pass
+    except Exception as e:
+        print(e)
+        return
     
 
 # What the user will see
