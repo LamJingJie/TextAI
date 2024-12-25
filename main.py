@@ -3,7 +3,7 @@ import asyncio
 from app.openai.main import initialize_openAI
 from app.playwright.main import get_page_data_playwright, get_all_pages_playwright
 from multiprocessing import Lock, Pool, Manager, cpu_count, Queue
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, Future, wait
 import base64
 from requests import Response
 import requests
@@ -41,11 +41,22 @@ async def main(processors: ProcessPoolExecutor):
     # Wait for all pages to be processed and returns back an array
     pages_json_content = await asyncio.gather(*pages_json_content)
 
-    
+    futures: list[Future] = []
+    processed_data = {}
+
+    # Processing images
     for page in pages_json_content:
+
         for img in page['all_student_imgs']:
-            #Find img in assets
-            processors.submit(process_img_openai, img[0], page['assets'], img[1])
+            # Process all imgs seperately, in parallel
+            future = processors.submit(process_img_openai, img[0], page['assets'], img[1], page['target'], page['date'], page['desc'], processed_data)
+            futures.append(future)
+    
+    # Wait for all images to be processed
+    wait(futures, return_when="ALL_COMPLETED")
+    print("All images processed")
+    
+    
 
 
 # abit CPU-intensive :> (TMR TASKS)------
@@ -54,25 +65,30 @@ async def main(processors: ProcessPoolExecutor):
 # b) Send img to openAI
 # c) Get response (desc n keywords)
 # d) Store response and that img name, along with student name. Store as JSON file
-def process_img_openai(student_img_id, assets, student_name):
+
+# Process 1 image at a time
+def process_img_openai(student_img_id, assets, student_name, page, submission_date, prj_desc, processed_data):
     for asset in assets:
         if student_img_id == asset['id']:
-            resize_img(asset['props']['src'])
+            new_img: base64 = resize_img(asset['props']['src'])
+
+            # Send img to openAI vision model
+            
 
 
-# BUG HERE
-def resize_img(img_data: str | URL | bytes):
-    # get raw img data (bytes)
+# Resize img to fit openAI vision model specs
+def resize_img(img_data: str | URL) -> base64:
 
+    # Check if url or base64 and get the raw bytes data
     if img_data.startswith('data:image') and img_data.find('base64,') != -1:
-        # Is base64 data
+        # Is base64
         base64_index = img_data.find('base64,') + len('base64,')
-        img_data = base64.b64decode(img_data[base64_index:]) # Returns raw byte data
+        img_data = base64.b64decode(img_data[base64_index:]) # raw byte data
     else:
         # is URL
         response: Response = requests.get(img_data)
         if response.status_code == 200:
-            img_data = response.content # Returns raw byte data
+            img_data = response.content # raw byte data
         else:
             # Unable to retrieve img data (bytes) from url
             print("Fail")
@@ -80,15 +96,18 @@ def resize_img(img_data: str | URL | bytes):
             # <Error handling here>
             return
     
-    # Convert raw byte into file-like object to be opened by PIL as an  image
-    image: ImageFile = Image.open(BytesIO(img_data))
+    # Convert raw byte into file-like object to be opened by PIL as an image
+    image = Image.open(BytesIO(img_data))
+    max_res_horizontal: tuple = (768, 2000)
+    max_res_vertical: tuple = (2000, 768)
+    buffered = BytesIO()
 
     # Resize img for 'high res' mode. Short side <= 768px and Long side <= 2000px
-    try:
-        pass
-    except Exception as e:
-        print(e)
-        return
+    image.thumbnail(max_res_horizontal, Image.LANCZOS) if image.size[0] < image.size[1] else image.thumbnail(max_res_vertical, Image.LANCZOS)
+    image.save(buffered, format="JPEG", quality = 95, subsampling = 0) # 0 = highest quality slowest, 2 = lowest quality but fastest
+    img_bytes: bytes = buffered.getvalue()
+    return base64.b64encode(img_bytes)
+        
     
 
 # What the user will see
@@ -126,7 +145,7 @@ if __name__ == "__main__":
 
     # Initialize mp
     manager = Manager()
-    processors = ProcessPoolExecutor(max_workers=10)
+    processors = ProcessPoolExecutor(max_workers=12)
 
     asyncio.run(main(processors))
 
