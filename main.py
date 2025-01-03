@@ -10,6 +10,7 @@ import requests
 from yarl import URL
 from PIL import Image, ImageFile
 from io import BytesIO
+import json
 
 # *Main Flow*
 # 1. Load environment variables (done)
@@ -68,9 +69,10 @@ async def main(processors: ProcessPoolExecutor):
 
     # Wait for all imgs to be processed by openAI, returns back an array[obj]
     await asyncio.gather(*tasks)
-    print(openai_img_output)
     
     # save output to a json file
+    with open('output.json', 'w') as opt:
+        json.dump(openai_img_output, opt, indent=4)
     
 
 

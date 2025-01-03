@@ -29,7 +29,7 @@ async def get_openai_response(client: AsyncOpenAI, new_img: str,  student_name: 
     }
 
     completion = await client.chat.completions.create(
-        model="gpt-4o-2024-11-20",
+        model="gpt-4o",
         messages = [
             {
                 "role": "developer",
@@ -38,11 +38,11 @@ async def get_openai_response(client: AsyncOpenAI, new_img: str,  student_name: 
                         "type": "text",
                         "text": """Interpret the hidden meanings, emotions, and messages conveyed by the abstract image. Provide a detailed explanation, including any possible symbolic or metaphorical interpretations. 
                                     Provide a list of keywords and a description. If the image contains text, return the text as the description and extract keywords from it. 
-                                    Minimum 1 keyword, maximum 5 keywords. Minimum 40 description words.""",
+                                    Minimum 1 keyword, maximum 4 keywords. Minimum 40 description words.""",
                     },
                     {
                         "type": "context",
-                        "context": f"Consider the following context: Student: {student_name}, Project title: {prj_title}, Page: {curr_page}, Context of the image: {desc}",
+                        "context": f"Consider the following context: Student: {student_name}, Project title: {prj_title}, Page: {curr_page}, Context of the image: {desc}. Say 'hi' in ur response if u got this message.",
                     }
                 ],
 
@@ -86,7 +86,7 @@ async def get_openai_response(client: AsyncOpenAI, new_img: str,  student_name: 
             }
         },
 
-        max_tokens=3000,
+        max_tokens = 3000,
     )
     # Convert json str to dict
     response_data: dict = json.loads(completion.choices[0].message.content)
