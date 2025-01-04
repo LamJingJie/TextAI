@@ -88,8 +88,8 @@ async def get_page_data_playwright(url: str, target: str, processors: ProcessPoo
             return relavent_data
         
     except Exception as e:
-        print(e)
-        return # None
+        print(f"\rUnable to get data for {target}\n")
+        return None
 
 
 # DFS algorithm

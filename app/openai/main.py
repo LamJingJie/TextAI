@@ -23,74 +23,89 @@ async def initialize_openAI():
 
 
 async def get_openai_response(client: AsyncOpenAI, new_img: str,  student_name: str, curr_page: str, prj_title: str, submission_date: str, desc: str, img_id: str, output: dict):
-    content = {
-        "desc": "",
-        "keywords": []
-    }
+    try:
 
-    completion = await client.chat.completions.create(
-        model="gpt-4o",
-        messages = [
-            {
-                "role": "developer",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": """Interpret the hidden meanings, emotions, and messages conveyed by the abstract image. Provide a detailed explanation, including any possible symbolic or metaphorical interpretations. 
-                                    Provide a list of keywords and a description. If the image contains text, return the text as the description and extract keywords from it. 
-                                    Minimum 1 keyword, maximum 4 keywords. Minimum 40 description words.""",
-                    },
-                    {
-                        "type": "context",
-                        "context": f"Consider the following context: Student: {student_name}, Project title: {prj_title}, Page: {curr_page}, Context of the image: {desc}. Say 'hi' in ur response if u got this message.",
-                    }
-                ],
+        content = {
+            "desc": "",
+            "keywords": []
+        }
 
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{new_img}",
-                            "detail": "high", # 768 x 2048, expensive but btr quality output
+        completion = await client.chat.completions.create(
+            model="gpt-4o", # Currently referencing 2024-08-06
+            messages = [
+                {
+                    "role": "developer",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "You are an expert art critic and psychologist. You are asked to interpret an abstract image. "
                         }
-                    }
-                ]
-            },
-        ],
-
-        response_format = {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "image_content",
-                "strict": True, # Enforce the response schema strictly
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "desc": {
-                            "description": "Description of the abstract image",
-                            "type": "string"
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": """Interpret and describe the abstract and artistical image thoroughly, focusing on hidden meanings, emotions, and symbolic or metaphorical implications. Discuss potential psychological and cultural dimensions.
+                                    If image is just text-based, the description should be exactly the same as the text content, no summary. 
+                                    Exclude any references to software or technical details. 
+                                    Provide up to four keywords. Use at least forty words in the description.""",
                         },
+                        {
+                            "type": "text",
+                            "text": f"Consider the following context: Student: {student_name}, Project title: {prj_title}, Page: {curr_page}, Context of the image: {desc}.",
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{new_img}",
+                                "detail": "high", # 768 x 2048, expensive but btr quality output
+                            }
+                        },
+                    ],
+                },
+            ],
 
-                        "keywords": {
-                            "description": "Keywords of the abstract image",
-                            "type": "array",
-                            "items": {
+            response_format = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "image_content",
+                    "strict": True, # Enforce the response schema strictly
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "desc": {
+                                "description": "Description of the abstract image",
                                 "type": "string"
                             },
-                        }
-                    },
-                    "required": ["desc", "keywords"],
-                    "additionalProperties": False # Disallow properties not defined in the schema
-                }
-            }
-        },
 
-        max_tokens = 3000,
-    )
-    # Convert json str to dict
-    response_data: dict = json.loads(completion.choices[0].message.content)
-    content["desc"] = response_data["desc"]
-    content["keywords"] = response_data["keywords"]
-    key = f"{prj_title}__{curr_page}__{submission_date}__{student_name}__{img_id}"
-    output[key] = content
+                            "keywords": {
+                                "description": "Keywords of the abstract image",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                            }
+                        },
+                        "required": ["desc", "keywords"],
+                        "additionalProperties": False # Disallow properties not defined in the schema
+                    }
+                }
+            },
+            n = 1, # Number of responses to generate for each prompt
+            max_completion_tokens = 2000,
+            # temperature = 1.7, # 0-2, higher = results more diverse and creative
+        )
+
+        # Convert json str to dict
+        response_data: dict = json.loads(completion.choices[0].message.content)
+        content["desc"] = response_data["desc"]
+        content["keywords"] = response_data["keywords"]
+        key = f"{prj_title}__{curr_page}__{submission_date}__{student_name}__{img_id}"
+        output[key] = content
+        return None
+
+    except Exception as e:
+        print(f"\rError in openai image {img_id} for {student_name} at {curr_page}: {e}\n")
+        return None

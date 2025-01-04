@@ -11,6 +11,9 @@ from yarl import URL
 from PIL import Image, ImageFile
 from io import BytesIO
 import json
+import sys
+import threading
+import time
 
 # *Main Flow*
 # 1. Load environment variables (done)
@@ -19,8 +22,12 @@ import json
 # 4. retrieve json data from tldraw using playwright (Done)
 # 5. Get relevent data from json (Done)
 # 5. Send data to openai (URL or Base64) (Resize them before sending) (DONE)
-# 6. Get response from openai
-# 7. Process response (figure out how to store the desc and keywords for each of the img)
+# 6. Get response from openai (DONE)
+# 7. Process response (figure out how to store the desc and keywords for each of the img) (DONE)
+
+# *Considerations*
+# - Add error handling
+
 
 # Use async programming and multi-processing
 
@@ -33,6 +40,11 @@ async def main(processors: ProcessPoolExecutor):
     client: AsyncOpenAI = await initialize_openAI()
     targets, url = await cmd_user_input()
 
+    stop_loading_success = threading.Event()
+    stop_loading_failure = threading.Event()
+    loading_thread = threading.Thread(target=loading_screen, args = (stop_loading_success, stop_loading_failure))
+    loading_thread.start()
+
     # Get relevent JSON data from tldraw
     for target in targets:
         pages_json_content.append(get_page_data_playwright(url, target, processors))
@@ -41,10 +53,17 @@ async def main(processors: ProcessPoolExecutor):
 
     # Wait for all pages to be processed and returns back an array
     pages_json_content = await asyncio.gather(*pages_json_content)
+    pages_json_content = [data for data in pages_json_content if data is not None]
 
-    futures: list[Future] = []
+    # If all pages are invalid, exit program
+    if len(pages_json_content) == 0:
+        stop_loading_failure.set()
+        loading_thread.join()
+        return None
+
 
     # Process imgs in each page
+    futures: list[Future] = []
     for page in pages_json_content:
         for img in page['all_student_imgs']:
             # Transform all imgs seperately, in PARALLEL (multi-processing)
@@ -53,51 +72,84 @@ async def main(processors: ProcessPoolExecutor):
     
 
     # Wait for all images to be processed
-    wait(futures, return_when="ALL_COMPLETED")
+    done, notdone = wait(futures, return_when="ALL_COMPLETED")
+    done = [future for future in done if future.result() is not None]
 
+    # If all images are invalid, exit program
+    if len(done) == 0:
+        stop_loading_failure.set()
+        loading_thread.join()
+        return None
+
+    
+    # Array of processed imgs from selected pages
     openai_img_output: dict = {}
     tasks: list = []
-
-    # Send imgs to openai asynchronously
-    for future in futures:
+    for future in done:
         new_img, student_name, curr_page, prj_title, submission_date, desc, student_img_id = future.result()
 
-        if new_img:
-            # Send img to openAI 4o vision model
-            tasks.append(get_openai_response(client, new_img, student_name, curr_page, prj_title, submission_date, desc, student_img_id, openai_img_output))
+        # Send img to openAI 4o vision model asynchronously
+        tasks.append(get_openai_response(client, new_img, student_name, curr_page, prj_title, submission_date, desc, student_img_id, openai_img_output))
 
 
     # Wait for all imgs to be processed by openAI, returns back an array[obj]
     await asyncio.gather(*tasks)
-    
-    # save output to a json file
-    with open('output.json', 'w') as opt:
-        json.dump(openai_img_output, opt, indent=4)
-    
 
 
-    
-    
+    # If all images are unable to be processed by openAI, exit program
+    if len(openai_img_output.keys()) == 0:
+        stop_loading_failure.set()
+        return None
     
 
+    try:
+        # save output to a json file
+        with open('output.json', 'w') as opt:
+            json.dump(openai_img_output, opt, indent=4)
+    except Exception as e:
+        print(f"\rError saving output to file: {e}\n")
+        stop_loading_failure.set()
+        loading_thread.join()
+        return None
 
-# abit CPU-intensive :> (TMR TASKS)------
-# Tasks:
-# a) Resize img to fit openAI vision model specs
-# b) Send img to openAI
-# c) Get response (desc n keywords)
-# d) Store response and that img name, along with student name. Store as JSON file
+    stop_loading_success.set()
+    loading_thread.join()
+
+
+
+# General loading screen for the entire program
+def loading_screen(stop_loading_success: threading.Event, stop_loading_failure: threading.Event):
+    position = 0
+    sys.stdout.write("\n")
+    while not stop_loading_success.is_set() and not stop_loading_failure.is_set():
+        line = '.' * (position % 10 + 1)
+        sys.stdout.write(f"\rLoading{line}{' ' * (10 - len(line))}") # Clear the remaining lines
+        sys.stdout.flush()
+        position += 1
+        time.sleep(0.1)
+
+    if stop_loading_success.is_set():
+        print("\rProgram Completed")
+    elif stop_loading_failure.is_set():
+        print("\rProgram Failed")
+    
+
 
 # Process 1 image at a time
 def process_img(student_img_id: str, assets, student_name, curr_page, prj_title, submission_date, desc) -> tuple:
-    for asset in assets:
-        if student_img_id == asset['id']:
-            new_img: str = resize_img(asset['props']['src'])
-            
-            # student_img_id = student_img_id[student_img_id.find(":") + 1:]
-            student_img_id = student_img_id[len("asset:"):]
-            return new_img, student_name, curr_page, prj_title, submission_date, desc, student_img_id
+    try:
 
+        for asset in assets:
+            if student_img_id == asset['id']:
+                new_img: str = resize_img(asset['props']['src'])
+                
+                # student_img_id = student_img_id[student_img_id.find(":") + 1:]
+                student_img_id = student_img_id[len("asset:"):]
+                return new_img, student_name, curr_page, prj_title, submission_date, desc, student_img_id
+            
+    except Exception as e:
+        print(f"Error processing image {student_img_id} for {student_name} at {curr_page}: {e}")
+        return None
 
 
 # Resize img to fit openAI vision model specs
@@ -114,11 +166,7 @@ def resize_img(img_data: str | URL) -> str:
         if response.status_code == 200:
             img_data = response.content # raw bytes data
         else:
-            # Unable to retrieve img data (bytes) from url
-            print("Fail")
-
-            # <Error handling here>
-            return None
+            Exception("Unable to retrieve img data (bytes) from url")
     
     # Convert raw byte into file-like object to be opened by PIL as an image
     image = Image.open(BytesIO(img_data))
@@ -163,7 +211,10 @@ async def cmd_user_input():
     return targets, url
 
 
+
 if __name__ == "__main__":
+    # Initializing loading screen
+    
     # Load the environment variables from .env file
     load_dotenv()
 
@@ -172,5 +223,7 @@ if __name__ == "__main__":
     processors = ProcessPoolExecutor(max_workers=12)
 
     asyncio.run(main(processors))
+    processors.shutdown()
+    manager.shutdown()
 
 
