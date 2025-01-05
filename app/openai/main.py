@@ -38,7 +38,7 @@ async def get_openai_response(client: AsyncOpenAI, new_img: str,  student_name: 
                     "content": [
                         {
                             "type": "text",
-                            "text": "You are an expert art critic and psychologist. You are asked to interpret an abstract image. "
+                            "text": "You are an expert art critic. You are asked to interpret an abstract image. "
                         }
                     ],
                 },
@@ -48,7 +48,7 @@ async def get_openai_response(client: AsyncOpenAI, new_img: str,  student_name: 
                         {
                             "type": "text",
                             "text": """Interpret and describe the abstract and artistical image thoroughly, focusing on hidden meanings, emotions, and symbolic or metaphorical implications. Discuss potential psychological and cultural dimensions.
-                                    If image is just text-based, the description should be exactly the same as the text content, no summary. 
+                                    If image is text-based, the description should be EXACTLY the same as the text content. 
                                     Exclude any references to software or technical details. 
                                     Provide up to four keywords. Use at least forty words in the description.""",
                         },
@@ -95,7 +95,7 @@ async def get_openai_response(client: AsyncOpenAI, new_img: str,  student_name: 
             },
             n = 1, # Number of responses to generate for each prompt
             max_completion_tokens = 2000,
-            # temperature = 1.7, # 0-2, higher = results more diverse and creative
+            temperature = 1.3, # 0-2, higher = results more diverse and creative, default = 1
         )
 
         # Convert json str to dict

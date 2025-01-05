@@ -40,6 +40,7 @@ async def main(processors: ProcessPoolExecutor):
     client: AsyncOpenAI = await initialize_openAI()
     targets, url = await cmd_user_input()
 
+    # Loading Screen for the entire program (Excluding initialization)
     stop_loading_success = threading.Event()
     stop_loading_failure = threading.Event()
     loading_thread = threading.Thread(target=loading_screen, args = (stop_loading_success, stop_loading_failure))
@@ -138,7 +139,6 @@ def loading_screen(stop_loading_success: threading.Event, stop_loading_failure: 
 # Process 1 image at a time
 def process_img(student_img_id: str, assets, student_name, curr_page, prj_title, submission_date, desc) -> tuple:
     try:
-
         for asset in assets:
             if student_img_id == asset['id']:
                 new_img: str = resize_img(asset['props']['src'])
@@ -213,7 +213,6 @@ async def cmd_user_input():
 
 
 if __name__ == "__main__":
-    # Initializing loading screen
     
     # Load the environment variables from .env file
     load_dotenv()
