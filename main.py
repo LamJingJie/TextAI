@@ -34,9 +34,12 @@ import time
 
 # Example: https://www.tldraw.com/r/fOZmgi9MQzQc-rrXnpAz6?v=-167,-196,5343,2630&p=HGtpLC0ipiTvgK6awql7m
 
+Image.MAX_IMAGE_PIXELS = None
+
 
 async def main(processors: ProcessPoolExecutor):
     pages_json_content: list = []
+
     client: AsyncOpenAI = await initialize_openAI()
     targets, url = await cmd_user_input()
 
@@ -46,11 +49,10 @@ async def main(processors: ProcessPoolExecutor):
     loading_thread = threading.Thread(target=loading_screen, args = (stop_loading_success, stop_loading_failure))
     loading_thread.start()
 
-    # Get relevent JSON data from tldraw
+    # Get relevent JSON data from all selected pages present in tldraw
     for target in targets:
         pages_json_content.append(get_page_data_playwright(url, target, processors))
     
-    # None value = error occured and should be ignored
 
     # Wait for all pages to be processed and returns back an array
     pages_json_content = await asyncio.gather(*pages_json_content)
@@ -58,6 +60,7 @@ async def main(processors: ProcessPoolExecutor):
 
     # If all pages are invalid, exit program
     if len(pages_json_content) == 0:
+        print("\nNo pages were able to be processed")
         stop_loading_failure.set()
         loading_thread.join()
         return None
@@ -67,6 +70,7 @@ async def main(processors: ProcessPoolExecutor):
     futures: list[Future] = []
     for page in pages_json_content:
         for img in page['all_student_imgs']:
+
             # Transform all imgs seperately, in PARALLEL (multi-processing)
             future = processors.submit(process_img, img[0], page['assets'], img[1], page['target'], page['prj_title'], page['date'], page['desc'])
             futures.append(future)
@@ -78,6 +82,7 @@ async def main(processors: ProcessPoolExecutor):
 
     # If all images are invalid, exit program
     if len(done) == 0:
+        print("\nNo images were able to be processed")
         stop_loading_failure.set()
         loading_thread.join()
         return None
@@ -166,7 +171,7 @@ def resize_img(img_data: str | URL) -> str:
         if response.status_code == 200:
             img_data = response.content # raw bytes data
         else:
-            Exception("Unable to retrieve img data (bytes) from url")
+            raise Exception("Unable to retrieve img data (bytes) from url")
     
     # Convert raw byte into file-like object to be opened by PIL as an image
     image = Image.open(BytesIO(img_data))

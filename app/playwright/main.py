@@ -69,7 +69,7 @@ async def get_page_data_playwright(url: str, target: str, processors: ProcessPoo
                 future_obj_task = processors.submit(get_tasks_method1, filtered_shapes_data, frame_id)
             else:
                 # Custom template
-                future_obj_task = processors.submit(get_tasks_method1, filtered_shapes_data, frame_id)
+                future_obj_task = processors.submit(get_tasks_method2, filtered_shapes_data, frame_id)
 
             # 0: assetid
             # 1: student name
@@ -118,6 +118,42 @@ def get_tasks_method1(shapes: list, frame_id: str, name = None, all_student_imgs
         if shape['parentId'] == frame_id and shape['type'] == 'group':
             new_students_imgs = get_tasks_method1(shapes, shape['id'], name, all_student_imgs)
             all_student_imgs.update(new_students_imgs)
+
+    return all_student_imgs
+
+
+# DFS algorithm
+# Custom template
+def get_tasks_method2(shapes: list, frame_id: str, name = None, all_student_imgs = None):
+    if all_student_imgs is None:
+        all_student_imgs = set()
+
+
+    for shape in shapes:
+        # Stops here when an image is found and its inside the submission_frame
+        if shape['parentId'] == frame_id and shape['type'] == 'image' and name is not None:
+            student_img_data = (
+                shape['props']['assetId'],
+                name,
+            )
+
+            # use multi-processing to get images, resize and save them in parallel. Submit tasks to the pool
+            all_student_imgs.add(student_img_data)
+            
+
+        # Perform a recursive call and send over the student name
+        if shape['type'] == 'submission_frame' and shape['parentId'] == frame_id:
+            name = shape['props']['name'].strip().replace('<', '').replace('>', '')
+            new_students_imgs = get_tasks_method2(shapes, shape['id'], name, all_student_imgs)
+            all_student_imgs.update(new_students_imgs)
+
+            name = None
+        
+        if (shape['type'] == 'group' or shape['type'] == 'frame') and shape['parentId'] == frame_id:
+            # Perform a recursive call if its a group or frame, each time going deeper
+            new_students_imgs = get_tasks_method2(shapes, shape['id'], name, all_student_imgs)
+            all_student_imgs.update(new_students_imgs)
+    
 
     return all_student_imgs
 

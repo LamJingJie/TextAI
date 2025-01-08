@@ -6,6 +6,9 @@
 ## Introduction
 - This tool is used to process images and generate related texts and summaries.
 
+##
+- Kept at low temperature (0.3) to ensure reprodability of img description. Too high it may start halucinating and generate gibberish
+
 ## Initialization
 Navigate to the parent folder and run the following commands:
 

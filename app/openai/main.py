@@ -95,7 +95,7 @@ async def get_openai_response(client: AsyncOpenAI, new_img: str,  student_name: 
             },
             n = 1, # Number of responses to generate for each prompt
             max_completion_tokens = 2000,
-            temperature = 1.3, # 0-2, higher = results more diverse and creative, default = 1
+            temperature = 0.1, # 0-2, higher = results more diverse and creative (but less reproducable), default = 1
         )
 
         # Convert json str to dict
