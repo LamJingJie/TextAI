@@ -40,9 +40,13 @@ Image.MAX_IMAGE_PIXELS = None
 async def main(processors: ProcessPoolExecutor):
     pages_json_content: list = []
 
-    client: AsyncOpenAI = await initialize_openAI()
-    targets, url = await cmd_user_input()
-
+    try:
+        client: AsyncOpenAI = await initialize_openAI()
+        targets, url = await cmd_user_input()
+    except Exception as e:
+        print(f"Error initializing: {e}")
+        return None
+    
     # Loading Screen for the entire program (Excluding initialization)
     stop_loading_success = threading.Event()
     stop_loading_failure = threading.Event()
@@ -70,7 +74,6 @@ async def main(processors: ProcessPoolExecutor):
     futures: list[Future] = []
     for page in pages_json_content:
         for img in page['all_student_imgs']:
-
             # Transform all imgs seperately, in PARALLEL (multi-processing)
             future = processors.submit(process_img, img[0], page['assets'], img[1], page['target'], page['prj_title'], page['date'], page['desc'])
             futures.append(future)
@@ -204,8 +207,7 @@ async def cmd_user_input():
             try:
                 targets = await get_all_pages_playwright(url)
             except Exception as e:
-                print(e)
-                exit()
+                raise Exception(f"Unable to extract all pages (Check if URL is valid): {e}")
             break
 
         # Done adding pages
