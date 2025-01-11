@@ -54,7 +54,7 @@ async def get_openai_response(client: AsyncOpenAI, new_img: str,  student_name: 
                         },
                         {
                             "type": "text",
-                            "text": f"Consider the following context: Student: {student_name}, Project title: {prj_title}, Page: {curr_page}, Context of the image: {desc}.",
+                            "text": f"Consider the following context: Student: {student_name}, Project title: {prj_title}, Page: {curr_page}, Context of the image: {desc}. If you understand, add 'jingjie' to the end of your response.",
                         },
                         {
                             "type": "image_url",
