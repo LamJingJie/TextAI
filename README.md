@@ -16,16 +16,25 @@ This tool processes images submitted from a popular website (TLDRAW) and generat
 - Keywords → up to 4 allowed  
 - Built only with tldraw website in mind
 
+Use your own OpenAI API key by renaming “.env.example” to “.env” and pasting your key into that file.
+
+### Example
+
+| tlextractor                               | textAI JSON Output                         |
+|------------------------------------------|--------------------------------------------|
+| ![tlextractor screenshot](img/tlextractor_imgs.png) | ![textAI screenshot](img/textAI_imgs.png)  |
+
+
 ### Templates
 - [Standard Template](https://github.com/LamJingJie/tlextractor)  
 - [Custom Template](https://github.com/LamJingJie/tldraw/tree/dynamic_submission_template)
 
 ## Important Notes
 - A low temperature (0.1) ensures reproducible image descriptions and keywords. A higher temperature may cause “hallucinations” or overly creative results.  
-- Images are sent at “high” quality (detail=high). This requires a 768×2048 (or 2048×768) resolution.  
-- The cost scales with resolution (e.g., every 512px boundary costs 170 tokens + an additional 85 tokens).  
-- Using the model gpt-4o-2024-08-06 for vision, cannot use O1 without a higher-tier account (Tier 5).  
-- The average cost is about $0.01 per 3 images.  
+- Images are sent at “high” quality (detail=high). This requires a <b>768×2048 (or 2048×768)</b> resolution.  
+- The cost scales with resolution (e.g., every 512px boundary costs 170 tokens + an additional 85 tokens to the final tokens).  
+- Using the model <b>gpt-4o-2024-08-06</b> for vision, cannot use O1 without a higher-tier account (Tier 5).  
+- The average cost is about <b>$0.01</b> per 3 images.  
 - The model accepts files up to 20MB.  
 - Currently using “Structured Outputs” from OpenAI, though min/max constraints on summaries and keywords are not fully supported yet (so it’s enforced via prompt).
 
